@@ -1,0 +1,9 @@
+# Override untuk build image secara lokal, misalnya saat mengembangkan
+# aplikasi tanpa menunggu pipeline GitHub Actions.
+#
+# Pemakaian:
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+services:
+  web:
+    build:
+      context: .

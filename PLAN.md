@@ -91,9 +91,11 @@ domain-migration/
 ├── .github/
 │   └── workflows/
 │       └── docker.yml
+├── README.md
 ├── PLAN.md
 ├── Dockerfile
 ├── docker-compose.yml
+├── docker-compose.build.yml
 ├── .env
 ├── .env.example
 ├── .dockerignore
@@ -107,10 +109,16 @@ domain-migration/
 │   ├── config/
 │   │   ├── config.go
 │   │   └── config_test.go
+│   ├── logging/
+│   │   ├── logging.go
+│   │   └── logging_test.go
 │   └── web/
 │       ├── handler.go
 │       ├── templates.go
 │       └── handler_test.go
+├── logs/                      # dibuat saat deployment (git-ignored)
+│   ├── nginx/
+│   └── web/
 ├── templates/
 │   ├── index.html
 │   ├── migration.html
@@ -130,6 +138,7 @@ Template dan aset statis di-embed dengan `//go:embed` sehingga image runtime han
 Gunakan satu daftar slug yang urut, lalu variabel per slug.
 
 ```dotenv
+IMAGE_TAG=latest
 PORT=8080
 PROJECTS=project-a,project-b
 
@@ -163,16 +172,16 @@ Aturan konfigurasi:
 
 ### 6.1 Docker Compose
 
-- Service `web`: aplikasi Go, listen pada `0.0.0.0:8080` di jaringan internal Compose, tanpa publish port.
+- Service `web`: image `ghcr.io/rahmadwidiansyah/gantidomain:${IMAGE_TAG:-latest}`, listen pada `0.0.0.0:8080` di jaringan internal Compose, tanpa publish port.
 - Service `nginx`: reverse proxy, publish `4114:80`.
 - Nginx menjadi satu-satunya service yang mempublikasikan port host.
-- Network internal khusus untuk komunikasi Nginx ke aplikasi.
+- Network internal khusus untuk komunikasi Nginx ke aplikasi; nginx juga terhubung ke network edge agar port host dapat dipublikasikan.
 - Health check aplikasi via `wget`, `depends_on` dengan `condition: service_healthy`.
 - `restart: unless-stopped`, resource limit memori 128 MB per service.
 - Aplikasi: `read_only`, `cap_drop: ALL`, `no-new-privileges`, `tmpfs` kecil untuk `/tmp`.
-- Tidak ada database, Redis, atau volume aplikasi.
-- Build multi-stage: `golang:1.27.1-alpine` untuk build, `alpine:3.22` untuk runtime.
-- Image di-pin, bukan `latest`.
+- Tidak ada database, Redis, atau volume Docker; log ditulis ke `./logs` melalui bind mount.
+- Build local memakai override `docker-compose.build.yml`; build multi-stage: `golang:1.27.1-alpine` untuk build, `alpine:3.22` untuk runtime.
+- Base image di-pin, bukan `latest`; tag image aplikasi dapat dipin melalui `IMAGE_TAG`.
 
 ### 6.2 Nginx
 
@@ -323,4 +332,16 @@ Workflow `.github/workflows/docker.yml`:
 - Autentikasi memakai `GITHUB_TOKEN` dengan permission `packages: write`; tidak perlu secret tambahan.
 - Cache build memakai GitHub Actions cache; image menyertakan SBOM dan provenance.
 - Package GHCR pertama kali dibuat otomatis dan defaultnya private. Ubah visibility menjadi public di pengaturan package jika image perlu ditarik tanpa login.
+
+## 16. Deployment GHCR, README, dan storage log
+
+- `docker-compose.yml` memakai image `ghcr.io/rahmadwidiansyah/gantidomain:${IMAGE_TAG:-latest}`; tidak ada `build` di file utama.
+- `docker-compose.build.yml` menyediakan override `build.context` untuk pengembangan lokal.
+- `README.md` mendokumentasikan quick start, tabel konfigurasi, routing, operasi, build lokal, CI, keamanan, dan troubleshooting.
+- Log disimpan di direktori project melalui bind mount, tanpa named volume:
+  - `./logs/nginx/access.log` dan `./logs/nginx/error.log`
+  - `./logs/web/server.log` (stdout tetap ditulis oleh aplikasi)
+- `LOG_FILE` bersifat opsional, harus path absolut, dan divalidasi saat startup. Jika file tidak dapat dibuka, aplikasi gagal start dengan pesan jelas.
+- Direktori `logs/web` harus dimiliki UID 10001; langkah `chown` didokumentasikan di README. `logs/` di-ignore oleh git dan Docker build context.
+- Rotasi log tidak otomatis; README menyertakan contoh `logrotate` dengan `copytruncate`.
 

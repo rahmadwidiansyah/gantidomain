@@ -87,6 +87,38 @@ func TestLoadEmptyProjects(t *testing.T) {
 	}
 }
 
+func TestLoadLogFile(t *testing.T) {
+	t.Run("default kosong", func(t *testing.T) {
+		cfg, err := loadWith(t, validEnv())
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+		if cfg.LogFile != "" {
+			t.Errorf("LogFile = %q, want kosong", cfg.LogFile)
+		}
+	})
+
+	t.Run("path absolut", func(t *testing.T) {
+		env := validEnv()
+		env["LOG_FILE"] = "/var/log/gantidomain/server.log"
+		cfg, err := loadWith(t, env)
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+		if cfg.LogFile != "/var/log/gantidomain/server.log" {
+			t.Errorf("LogFile = %q", cfg.LogFile)
+		}
+	})
+
+	t.Run("path relatif ditolak", func(t *testing.T) {
+		env := validEnv()
+		env["LOG_FILE"] = "logs/server.log"
+		if _, err := loadWith(t, env); err == nil {
+			t.Fatal("Load() dengan LOG_FILE relatif seharusnya gagal")
+		}
+	})
+}
+
 func TestLoadPort(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		env := validEnv()
