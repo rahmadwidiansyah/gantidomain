@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>{{.Title}}</title>
+  <meta name="description" content="{{.Description}}">
+  <meta name="theme-color" content="{{.ThemeColor}}">
+  <link rel="icon" href="/static/favicon.svg?v={{.IconVersion}}" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/css/style.css?v={{.CSSVersion}}">
+  <style nonce="{{.Nonce}}">
+    :root {
+      --accent: {{.ThemeColor}};
+      --accent-text: #ffffff;
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Langsung ke konten</a>
+
+  <main class="shell" id="main">
+    <article class="card" aria-labelledby="page-title">
+      <p class="status">
+        <span class="status-dot" aria-hidden="true"></span>
+        Pemberitahuan perpindahan domain
+      </p>
+
+      <h1 id="page-title">Pilih project yang Anda cari</h1>
+
+      {{if .Projects}}
+      <p class="lead">Beberapa project telah berpindah ke alamat baru. Pilih project di bawah untuk melihat alamat terbarunya.</p>
+
+      <ul class="project-list">
+        {{range .Projects}}
+        <li>
+          <a class="project-link" href="/{{.Slug}}">
+            <span class="project-name">{{.Name}}</span>
+            <span class="project-slug">/{{.Slug}}</span>
+          </a>
+        </li>
+        {{end}}
+      </ul>
+      {{else}}
+      <p class="lead">Belum ada project yang dikonfigurasi.</p>
+      <p class="note">Tambahkan daftar slug pada variabel <code>PROJECTS</code> beserta konfigurasi <code>PROJECT_&lt;SLUG&gt;_*</code>, lalu jalankan ulang layanan.</p>
+      {{end}}
+    </article>
+
+    <footer class="footer">
+      <p>Pastikan Anda menggunakan alamat resmi yang tercantum di halaman ini.</p>
+    </footer>
+  </main>
+</body>
+</html>

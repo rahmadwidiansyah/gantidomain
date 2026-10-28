@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>{{.Title}}</title>
+  <meta name="description" content="{{.Description}}">
+  <meta name="theme-color" content="{{.ThemeColor}}">
+  <link rel="icon" href="/static/favicon.svg?v={{.IconVersion}}" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/css/style.css?v={{.CSSVersion}}">
+  <style nonce="{{.Nonce}}">
+    :root {
+      --accent: {{.ThemeColor}};
+      --accent-text: #ffffff;
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Langsung ke konten</a>
+
+  <main class="shell" id="main">
+    <article class="card" aria-labelledby="page-title">
+      <p class="status">
+        <span class="status-dot" aria-hidden="true"></span>
+        {{.Status}}
+      </p>
+
+      <h1 id="page-title">{{.Title}}</h1>
+      <p class="lead">{{.Description}}</p>
+      {{if .Note}}<p class="note">{{.Note}}</p>{{end}}
+
+      <div class="actions">
+        <a class="button button-primary" href="/">Kembali ke Halaman Utama</a>
+      </div>
+    </article>
+  </main>
+</body>
+</html>
