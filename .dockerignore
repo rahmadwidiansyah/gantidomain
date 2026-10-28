@@ -8,5 +8,4 @@ Dockerfile
 docker-compose.yml
 docker-compose.build.yml
 nginx
-logs
 *.md

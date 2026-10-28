@@ -13,33 +13,20 @@ import (
 	"time"
 
 	"gantibdomain/internal/config"
-	"gantibdomain/internal/logging"
 	"gantibdomain/internal/web"
 )
 
 func main() {
-	bootLogger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
-	slog.SetDefault(bootLogger)
+	slog.SetDefault(logger)
 
 	cfg, err := config.Load()
 	if err != nil {
-		bootLogger.Error("konfigurasi tidak valid", "error", err)
+		logger.Error("konfigurasi tidak valid", "error", err)
 		os.Exit(1)
 	}
-
-	logger, closeLogger, err := logging.New(cfg.LogFile)
-	if err != nil {
-		bootLogger.Error("gagal menyiapkan logger", "error", err)
-		os.Exit(1)
-	}
-	defer func() {
-		if err := closeLogger(); err != nil {
-			logger.Error("gagal menutup file log", "error", err)
-		}
-	}()
-	slog.SetDefault(logger)
 
 	handler, err := web.New(cfg, logger)
 	if err != nil {

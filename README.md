@@ -15,7 +15,6 @@ Dibangun dengan Go standard library, template HTML yang di-embed ke binary, dan 
 - Validasi konfigurasi saat startup: slug, URL, dan warna aksen.
 - Escaping otomatis lewat `html/template`, CSP dengan nonce, dan header keamanan dasar.
 - Container aplikasi non-root, read-only, dan tanpa port yang dipublikasikan langsung.
-- Log aplikasi dan Nginx dapat disimpan di direktori project (`./logs`).
 - Image siap pakai di GHCR, dibangun otomatis oleh GitHub Actions untuk amd64 dan arm64.
 
 ## Arsitektur
@@ -27,11 +26,10 @@ Browser
 Nginx (container, port 80)  ──proxy──▶  Go app (container, port 8080)
    │                                        │
    ├─ ./nginx/default.conf (bind mount)     ├─ template & CSS di-embed di binary
-   └─ ./logs/nginx/*.log                    └─ ./logs/web/server.log
 ```
 
 - Hanya Nginx yang memublikasikan port host (`4114`).
-- Aplikasi Go berada di network internal tanpa akses keluar.
+- Aplikasi Go berada di network bridge biasa.
 - Tidak ada database, Redis, atau named volume Docker.
 
 ## Persyaratan
@@ -51,9 +49,6 @@ cd gantidomain
 cp .env.example .env
 # Edit .env dan ganti domain contoh dengan domain asli.
 
-mkdir -p logs/nginx logs/web
-sudo chown -R 10001:10001 logs/web
-
 docker compose pull
 docker compose up -d
 docker compose ps
@@ -67,8 +62,6 @@ Verifikasi cepat:
 curl -i http://localhost:4114/healthz      # 200 OK
 curl -i http://localhost:4114/project-a    # halaman project-a
 ```
-
-> `logs/web` harus dapat ditulis oleh UID `10001` (user container aplikasi). Jika langkah `chown` terlewat, container akan berhenti dengan pesan `gagal membuka LOG_FILE ... permission denied` di `docker compose logs web`.
 
 ## Konfigurasi `.env`
 
@@ -93,7 +86,6 @@ PROJECT_PROJECT_A_ACCENT_COLOR=#1d4ed8
 | `IMAGE_TAG` | tidak | `latest` | Tag image GHCR. Pin ke `sha-<commit>` atau tag versi untuk deployment reproducible. |
 | `PORT` | tidak | `8080` | Port internal aplikasi Go. Tidak dipublikasikan ke host. |
 | `PROJECTS` | ya | — | Daftar slug dipisahkan koma; urutannya dipakai di halaman indeks. Boleh kosong. |
-| `LOG_FILE` | tidak | — | Diatur oleh `docker-compose.yml` ke `/var/log/gantidomain/server.log`. Harus path absolut. |
 
 ### Variabel per project
 
@@ -151,38 +143,6 @@ Tidak perlu rebuild image karena konfigurasi dibaca saat container dibuat.
 
 Tidak ada redirect otomatis ke domain baru. Pengunjung selalu melihat halaman pemberitahuan dengan tombol menuju alamat baru.
 
-## Storage dan log
-
-Semua data yang ditulis berada di direktori project, bukan di named volume Docker:
-
-```
-logs/
-├── nginx/
-│   ├── access.log
-│   └── error.log
-└── web/
-    └── server.log
-```
-
-- Nginx menulis access/error log ke `./logs/nginx` (bind mount ke `/var/log/nginx`).
-- Aplikasi menulis log JSON ke stdout **dan** `./logs/web/server.log` (bind mount ke `/var/log/gantidomain`).
-- File log dibuat dengan mode `0644` agar bisa dibaca tanpa `sudo`; log aplikasi tidak memuat secret.
-- `LOG_FILE` diatur di `docker-compose.yml`. Aplikasi gagal startup jika file tidak bisa dibuka.
-- File log tidak dirotasi otomatis. Contoh `logrotate`:
-
-```
-/path/ke/gantidomain/logs/nginx/*.log /path/ke/gantidomain/logs/web/*.log {
-    daily
-    rotate 14
-    compress
-    missingok
-    notifempty
-    copytruncate
-}
-```
-
-`copytruncate` dipakai karena proses masih memegang file log yang terbuka.
-
 ## Operasi
 
 ```bash
@@ -199,12 +159,6 @@ docker compose up -d --force-recreate
 # Ganti tag image tanpa mengedit .env
 IMAGE_TAG=sha-d61814a docker compose up -d
 
-# Ikuti log aplikasi (file)
-tail -f logs/web/server.log
-
-# Ikuti log Nginx (file)
-tail -f logs/nginx/access.log logs/nginx/error.log
-
 # Log stdout container
 docker compose logs -f --tail=100
 
@@ -212,7 +166,7 @@ docker compose logs -f --tail=100
 docker compose down
 ```
 
-`docker compose down` tidak menghapus `.env`, konfigurasi Nginx, maupun isi `logs/`.
+`docker compose down` tidak menghapus `.env` maupun konfigurasi Nginx.
 
 ## Build lokal
 
@@ -266,7 +220,6 @@ echo "$GHCR_TOKEN" | docker login ghcr.io -u <username> --password-stdin
 ├── cmd/server/main.go
 ├── internal/
 │   ├── config/            # loader & validasi environment
-│   ├── logging/           # logger stdout + file
 │   └── web/               # routing, header, render template
 ├── templates/             # index, migration, 404
 ├── static/                # css, favicon
@@ -297,13 +250,7 @@ Template dan aset statis di-embed ke binary dengan `//go:embed`.
 Pastikan slug ada di `PROJECTS` dan variabel memakai prefix yang benar. Contoh `project-a` → `PROJECT_PROJECT_A_*`, bukan `PROJECT_A_*`. Cek `docker compose logs web` untuk pesan validasi.
 
 **Container `web` langsung berhenti**
-Lihat `docker compose logs web`. Penyebab umum: `NEW_URL` kosong/tidak valid, `ACCENT_COLOR` salah format, atau `logs/web` tidak dapat ditulis.
-
-**`permission denied` pada log**
-```bash
-sudo chown -R 10001:10001 logs/web
-docker compose restart web
-```
+Lihat `docker compose logs web`. Penyebab umum: `NEW_URL` kosong/tidak valid, `ACCENT_COLOR` salah format.
 
 **502 Bad Gateway dari Nginx**
 Container `web` belum sehat. Cek `docker compose ps` dan `docker compose logs web`; `depends_on` hanya menunda start, bukan menjamin aplikasi tetap hidup.

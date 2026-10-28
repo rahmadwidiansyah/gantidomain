@@ -9,7 +9,6 @@ import (
 	"math"
 	"net/url"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -49,7 +48,6 @@ type Project struct {
 // Config adalah konfigurasi aplikasi yang sudah tervalidasi.
 type Config struct {
 	Port     string
-	LogFile  string
 	Projects []Project
 
 	bySlug map[string]Project
@@ -75,14 +73,8 @@ func load(getenv func(string) string) (*Config, error) {
 		return nil, fmt.Errorf("PORT %q tidak valid: harus berupa angka 1-65535", port)
 	}
 
-	logFile := strings.TrimSpace(getenv("LOG_FILE"))
-	if logFile != "" && !filepath.IsAbs(logFile) {
-		return nil, fmt.Errorf("LOG_FILE %q tidak valid: gunakan path absolut", logFile)
-	}
-
 	cfg := &Config{
 		Port:     port,
-		LogFile:  logFile,
 		bySlug:   make(map[string]Project),
 		Projects: []Project{},
 	}
